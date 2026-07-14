@@ -1,6 +1,9 @@
 # FREERUN
 
-A single-file first-person parkour game in a hand-drawn ink-and-paper city.
+A single-file third-person parkour game in a hand-drawn ink-and-paper city.
+You play an ink-drawn runner — chibi proportions, long black box braids, red
+sash, gloves and shoe stripes — with full procedural animation for running,
+vaulting, wall-run leans, climbing, mantling, sliding and landing rolls.
 Everything — engine glue, world generation, movement, audio, HUD, and an
 embedded copy of three.js — lives in [`index.html`](index.html). No build
 step, no server, no network: download the file, open it in a browser, run.
@@ -17,11 +20,12 @@ recapture the mouse after pausing.
 
 | Input | Action |
 | --- | --- |
-| `WASD` | move |
+| `WASD` | move (camera-relative) |
+| mouse | orbit the camera |
 | `Shift` (hold) | sprint — speed builds up over a second |
 | `Space` | jump / wall-jump / kick off a climb / mantle |
 | `C` or `Ctrl` | slide at speed · **timed roll** as you land to negate fall damage |
-| hold `W` into a wall | wall-climb (drains grip) |
+| push into a wall (airborne) | wall-climb (drains grip) |
 | jump alongside a wall | wall-run (Space to kick off) |
 | `E` | start a time trial at a red pad |
 | `R` | back to checkpoint / restart trial |
@@ -44,8 +48,14 @@ recapture the mouse after pausing.
 - **Collectibles** — 10 red pages hidden in hard-to-reach spots.
 - **Procedural audio** — Web Audio footsteps that change with the surface,
   wind that rises with height and speed, whooshes on jumps and wall-runs.
-- **Camera feel** — FOV widens with speed, the camera banks into wall-runs,
-  landing springs, hand-drawn boil on the HUD.
+- **Third-person camera** — smooth mouse orbit, pulls back with speed and
+  flow, banks into wall-runs, landing springs — and never clips through
+  walls (exact ray-vs-world clamping with snap-in / ease-out distance).
+- **Character animation** — fully procedural: run cycle scaled by speed,
+  vault and mantle tucks, wall-run lean with a hand on the wall, climbing
+  reaches, ledge-hang dangle, slide lean-back, mid-air somersault rolls,
+  plus physics-y braids and scarf that trail, lift in falls and whip on
+  turns. An ink-blob shadow keeps the runner grounded visually.
 
 ## Notes
 

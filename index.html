@@ -54,12 +54,12 @@
   <p class="sub">an ink-and-paper parkour sketchbook</p>
   <button class="btn" id="playBtn">RUN</button>
   <div class="controls">
-    <div><b>WASD</b> move</div>
+    <div><b>WASD</b> move &middot; <b>mouse</b> orbits the camera</div>
     <div><b>Shift</b> sprint (hold — momentum builds)</div>
     <div><b>Space</b> jump / wall-jump / mantle</div>
     <div><b>C / Ctrl</b> slide &middot; timed roll on landing</div>
-    <div><b>hold W</b> into a wall — climb (drains grip)</div>
-    <div><b>jump near wall</b> sideways — wall-run</div>
+    <div><b>push into a wall</b> airborne — climb (drains grip)</div>
+    <div><b>jump alongside a wall</b> — wall-run</div>
     <div><b>E</b> start a red time-trial</div>
     <div><b>R</b> back to checkpoint / retry trial</div>
     <div><b>Esc</b> pause</div>
@@ -71,7 +71,7 @@
 <div id="pause" class="overlay hidden">
   <h1 style="font-size:64px;transform:rotate(-1deg);margin:0 0 10px;">paused<span style="color:#d42b1e">.</span></h1>
   <button class="btn" id="resumeBtn">RESUME</button>
-  <p class="sub" style="font-size:15px;margin-top:18px;">WASD run &middot; Shift sprint &middot; Space jump &middot; C slide/roll &middot; W-into-wall climb &middot; E trial &middot; R checkpoint</p>
+  <p class="sub" style="font-size:15px;margin-top:18px;">WASD run &middot; mouse orbits &middot; Shift sprint &middot; Space jump &middot; C slide/roll &middot; push-into-wall climb &middot; E trial &middot; R checkpoint</p>
 </div>
 
 <div id="results" class="overlay hidden">
@@ -259,9 +259,9 @@ const skyTex=makeCanvas(1024,512,(g,w,h)=>{
     g.strokeStyle='rgba(40,40,40,.12)';
     inkLine(g,x-s,y+s*.28,x+s,y+s*.3,1.6,5); }
   // red sun — the one drop of color in the sky
-  g.fillStyle='#d42b1e'; g.beginPath(); g.arc(w*.72,h*.30,34,0,7); g.fill();
-  g.strokeStyle='rgba(20,20,20,.5)'; g.lineWidth=2.4;
-  g.beginPath(); g.arc(w*.72,h*.30,36,0,7); g.stroke();
+  g.fillStyle='#d42b1e'; g.beginPath(); g.arc(w*.72,h*.26,19,0,7); g.fill();
+  g.strokeStyle='rgba(20,20,20,.5)'; g.lineWidth=2.2;
+  g.beginPath(); g.arc(w*.72,h*.26,21,0,7); g.stroke();
   // distant skyline scribble
   g.strokeStyle='rgba(20,20,20,.14)';
   let x=0; while(x<w){ const bw=20+Math.random()*50, bh=20+Math.random()*60, y0=h*.62;
@@ -512,7 +512,7 @@ const courses=[
     start:roofC(5,5,5,5),
     gates:[gate(roofC(5,5,-BW/2-GAP/2,0)),gate(roofC(4,5)),gate(roofC(4,5,0,-BW/2-GAP/2)),
       gate(roofC(4,4)),gate(roofC(4,4,0,-BW/2-GAP/2)),gate(roofC(4,3)),
-      gate(roofC(4,3,-BW/2-GAP/2,0)),gate(roofC(3,3))] },
+      gate(roofC(4,3,-BW/2-GAP/2,0)),gate(roofC(3,3,-7,-5))] },
 ];
 const gateMat=new THREE.MeshBasicMaterial({color:0xd42b1e});
 const gateMatDim=new THREE.MeshBasicMaterial({color:0xd42b1e,transparent:true,opacity:.18});
@@ -546,6 +546,206 @@ scene.add(new THREE.Mesh(mergeGeometries(outlineGeos),
 scene.add(new THREE.LineSegments(mergeGeometries(edgeGeos),
   new THREE.LineBasicMaterial({color:0x141414})));
 
+/* ============================== runner character ============================== */
+const charMats={
+  skin:new THREE.MeshLambertMaterial({color:0xfff2e6}),
+  white:new THREE.MeshLambertMaterial({color:0xfbfaf6}),
+  black:new THREE.MeshLambertMaterial({color:0x1d1d1d}),
+  red:new THREE.MeshLambertMaterial({color:0xd42b1e}),
+};
+const charOutlineMat=new THREE.MeshBasicMaterial({color:0x141414,side:THREE.BackSide});
+function cpart(parent,w,h,d,mat,ox=0,oy=0,oz=0,outline=true){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(ox,oy,oz); parent.add(m);
+  if(outline)m.add(new THREE.Mesh(new THREE.BoxGeometry(w+.045,h+.045,d+.045),charOutlineMat));
+  return m;}
+function pivotG(parent,x,y,z){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g;}
+const faceTex=makeCanvas(128,128,(g,w,h)=>{ g.fillStyle='#fff2e6';g.fillRect(0,0,w,h);
+  g.strokeStyle='#141414';g.lineWidth=7;g.lineCap='round';
+  g.beginPath();g.moveTo(36,50);g.lineTo(42,78);g.stroke();          // determined ink eyes
+  g.beginPath();g.moveTo(92,50);g.lineTo(86,78);g.stroke();
+  g.lineWidth=4;g.beginPath();g.moveTo(28,44);g.lineTo(48,40);g.stroke(); // brows
+  g.beginPath();g.moveTo(100,44);g.lineTo(80,40);g.stroke();
+  g.strokeStyle='#d42b1e';g.lineWidth=3;
+  g.beginPath();g.moveTo(28,88);g.lineTo(42,85);g.stroke();          // cheek dashes
+  g.beginPath();g.moveTo(100,88);g.lineTo(86,85);g.stroke();
+  g.strokeStyle='#141414';g.lineWidth=4;
+  g.beginPath();g.moveTo(56,94);g.lineTo(72,95);g.stroke();          // mouth
+});
+faceTex.wrapS=faceTex.wrapT=THREE.ClampToEdgeWrapping;
+
+const charRoot=new THREE.Group(); scene.add(charRoot);
+const rig={};
+{ // model faces -z at rotation 0 (same convention as the camera)
+  const spin=pivotG(charRoot,0,.9,0); rig.spin=spin;         // waist pivot: rolls, leans
+  // legs (pivot at hip, abs y .74 -> rel -.16)
+  for(const s of ['L','R']){ const sx=s==='L'?-1:1;
+    const hip=pivotG(spin,sx*.11,-.16,0); rig['hip'+s]=hip;
+    cpart(hip,.13,.34,.14,charMats.white,0,-.17,0);
+    const knee=pivotG(hip,0,-.34,0); rig['knee'+s]=knee;
+    cpart(knee,.12,.3,.13,charMats.white,0,-.15,0);
+    const shoe=cpart(knee,.13,.1,.23,charMats.black,0,-.33,-.03);
+    cpart(shoe,.135,.028,.2,charMats.red,0,.052,0,false);    // red shoe stripe
+  }
+  // torso (pivot at hips, abs .74 -> rel -.16)
+  const torso=pivotG(spin,0,-.16,0); rig.torso=torso;
+  cpart(torso,.42,.5,.26,charMats.white,0,.27,0);
+  cpart(torso,.44,.09,.28,charMats.red,0,.1,0,false);        // red sash
+  // arms (shoulder pivot abs 1.18 -> rel torso +.44)
+  for(const s of ['L','R']){ const sx=s==='L'?-1:1;
+    const sh=pivotG(torso,sx*.27,.44,0); rig['sh'+s]=sh;
+    cpart(sh,.11,.3,.11,charMats.white,0,-.15,0);
+    const el=pivotG(sh,0,-.3,0); rig['el'+s]=el;
+    cpart(el,.095,.26,.095,charMats.skin,0,-.12,0);
+    cpart(el,.11,.09,.11,charMats.red,0,-.27,0);             // red gloves
+  }
+  // head (pivot abs 1.26 -> rel torso +.52) — chibi-big
+  const head=pivotG(torso,0,.52,0); rig.head=head;
+  const hm=new THREE.Mesh(new THREE.BoxGeometry(.44,.4,.42),[
+    charMats.skin,charMats.skin,charMats.skin,charMats.skin,charMats.skin,
+    new THREE.MeshLambertMaterial({map:faceTex})]);
+  hm.position.set(0,.2,0); head.add(hm);
+  hm.add(new THREE.Mesh(new THREE.BoxGeometry(.485,.445,.465),charOutlineMat));
+  cpart(head,.48,.16,.46,charMats.black,0,.4,.01);           // hair cap
+  cpart(head,.46,.13,.08,charMats.black,0,.34,-.2);          // fringe
+  cpart(head,.1,.05,.1,charMats.red,.17,.44,.05,false);      // red hairclip
+  cpart(head,.14,.4,.14,charMats.black,0,.16,.22);           // hair back
+  // scarf + tail
+  cpart(torso,.3,.1,.3,charMats.red,0,.48,0,false);
+  const scarf=pivotG(torso,0,.46,.16); rig.scarf=scarf;
+  cpart(scarf,.16,.34,.04,charMats.red,0,-.17,0,false);
+  // long box braids: two chains of 3 segments, red ties at the ends
+  rig.braids=[];
+  for(const s of [-1,1]){
+    const segs=[]; let par=pivotG(head,s*.15,.36,.2);
+    for(let i=0;i<4;i++){
+      cpart(par,.11-i*.012,.29,.11-i*.012,charMats.black,0,-.145,0);
+      segs.push(par);
+      const nxt=pivotG(par,0,-.29,0);
+      if(i===3)cpart(nxt,.13,.08,.13,charMats.red,0,-.02,0,false); // tie
+      par=nxt;
+    }
+    rig.braids.push(segs);
+  }
+}
+// soft ink blob shadow under the runner
+const blob=new THREE.Mesh(new THREE.CircleGeometry(.36,18),
+  new THREE.MeshBasicMaterial({color:0x141414,transparent:true,opacity:.2,depthWrite:false}));
+blob.rotation.x=-Math.PI/2; scene.add(blob);
+
+let charYaw=Math.PI*.75,runPhase=0,climbPhase=0,turnS=0,prevCharYaw=Math.PI*.75;
+const dampAng=(c,t,k,dt)=>{let d=((t-c+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
+  return c+d*(1-Math.exp(-k*dt));};
+function updateCharacter(dt){
+  if(dt<=0)dt=1e-4;
+  const hsp=Math.hypot(P.vx,P.vz), t=timeS;
+  const vd=hsp>.01?[P.vx/hsp,P.vz/hsp]:[0,0];
+  const yawOf=(dx,dz)=>Math.atan2(-dx,-dz);
+  /* ---- facing ---- */
+  let ty=charYaw;
+  if(P.state==='hang'&&P.hang)ty=yawOf(P.hang.fx,P.hang.fz);
+  else if(P.state==='climb'&&P.climbN)ty=yawOf(-P.climbN[0],-P.climbN[1]);
+  else if(P.anim){const ax=P.anim.to.x-P.anim.from.x,az=P.anim.to.z-P.anim.from.z;
+    if(Math.hypot(ax,az)>.05)ty=yawOf(ax,az);}
+  else if(hsp>1.2)ty=yawOf(vd[0],vd[1]);
+  else if(P.inL>0)ty=yawOf(P.inX,P.inZ);
+  charYaw=dampAng(charYaw,ty,12,dt);
+  charRoot.position.set(P.x,P.y,P.z);
+  charRoot.rotation.y=charYaw;
+  turnS=damp(turnS,clamp(dampAng(0,charYaw-prevCharYaw,1e9,1)/dt,-8,8),6,dt);
+  prevCharYaw=charYaw;
+  /* ---- pose targets ---- */
+  const ap=(o,ax,tv,k=16)=>{o.rotation[ax]=damp(o.rotation[ax],tv,k,dt);};
+  const amp=clamp(hsp/9,0,1);
+  let bobY=0, spinY=.9, leanX=0, leanZ=0;
+  let hL=0,hR=0,kL=.08,kR=.08, sLX=0,sRX=0,sLZ=.07,sRZ=-.07,eL=-.3,eR=-.3, hX=0;
+  if(P.state==='dead'){ leanX=-1.4; kL=kR=.4; sLZ=1.2;sRZ=-1.2; }
+  else if(P.state==='hang'){
+    sLX=sRX=-2.85; sLZ=.15;sRZ=-.15; eL=eR=-.1;
+    kL=.3+Math.sin(t*2.1)*.08; kR=.32-Math.sin(t*2.3)*.08;
+    hX=.35; leanX=.12; leanZ=Math.sin(t*1.7)*.04;
+  }
+  else if(P.state==='climb'){
+    climbPhase+=dt*6.5; const cs=Math.sin(climbPhase);
+    sLX=-2.5+cs*.55; sRX=-2.5-cs*.55; eL=eR=-.25;
+    hL=.55+cs*.45; hR=.55-cs*.45; kL=.9-cs*.35; kR=.9+cs*.35;
+    leanX=.16; hX=.5;
+  }
+  else if(P.state==='wallrun'){
+    runPhase+=dt*(4+hsp*1.3); const sw=Math.sin(runPhase);
+    const side=P.wallSide;
+    leanZ=side*.42; leanX=.18;
+    hL=sw*.6*amp; hR=-sw*.6*amp; kL=Math.max(0,-sw)*1.1+.1; kR=Math.max(0,sw)*1.1+.1;
+    if(side>0){ sRZ=-1.25; sRX=-.5; sLX=-sw*.7; }           // inner hand brushes the wall
+    else{ sLZ=1.25; sLX=-.5; sRX=sw*.7; }
+    hX=-.1;
+  }
+  else if(P.state==='slide'){
+    spinY=.52; leanX=-.95;
+    hL=-1.5; hR=-1.05; kL=.2; kR=.85;
+    sLX=.7; sLZ=.5; sRX=-.55; sRZ=-.9; eL=eR=-.2; hX=.75;
+  }
+  else if(P.state==='mantle'||P.state==='vault'){
+    sLX=sRX=-1.25; sLZ=.3;sRZ=-.3; eL=eR=-.5;
+    hL=hR=.9; kL=kR=1.25; leanX=.5; hX=.25;
+  }
+  else if(!P.grounded){
+    if(rollAnimT<=0){
+      if(P.vy>1.5){ sLX=-2.3; sRX=.8; sLZ=.25; hL=.6; hR=-.35; kL=1.0; kR=.3; leanX=.1; }
+      else{ const fl=Math.sin(t*7); sLZ=1.05+fl*.12; sRZ=-1.05+fl*.12;
+        sLX=sRX=-.5; hL=.3+fl*.15; hR=.2-fl*.15; kL=.5; kR=.6; leanX=-.06; hX=-.2; }
+    }
+  }
+  else if(hsp>.6){ // run / sprint
+    runPhase+=dt*(4+hsp*1.35);
+    const sw=Math.sin(runPhase);
+    hL=sw*.78*amp; hR=-sw*.78*amp;
+    kL=Math.max(0,-sw)*1.25*amp+.08; kR=Math.max(0,sw)*1.25*amp+.08;
+    sLX=-sw*.85*amp; sRX=sw*.85*amp;
+    eL=-.45-Math.max(0,sw)*.5*amp; eR=-.45-Math.max(0,-sw)*.5*amp;
+    leanX=.08+amp*.24; bobY=Math.abs(Math.cos(runPhase))*.05*amp; hX=-.05;
+  }
+  else{ // idle: breathe, look around
+    leanX=.03+Math.sin(t*2.1)*.015; hX=Math.sin(t*.7)*.06;
+    sLZ=.09+Math.sin(t*2.1)*.02; sRZ=-.09-Math.sin(t*2.1)*.02;
+  }
+  if(rollAnimT>0){ // tuck during the roll flip
+    const p=1-rollAnimT/.42;
+    rig.spin.rotation.x=-p*Math.PI*2+leanX;
+    kL=kR=1.6; hL=hR=1.1; sLX=sRX=-1.3; eL=eR=-1.4; hX=.5;
+  } else {
+    if(rig.spin.rotation.x<-3.5)rig.spin.rotation.x+=Math.PI*2;
+    ap(rig.spin,'x',leanX,14);
+  }
+  ap(rig.spin,'z',leanZ,10);
+  rig.spin.position.y=damp(rig.spin.position.y,spinY,14,dt)+bobY;
+  ap(rig.hipL,'x',hL,20); ap(rig.hipR,'x',hR,20);
+  ap(rig.kneeL,'x',kL,20); ap(rig.kneeR,'x',kR,20);
+  ap(rig.shL,'x',sLX,18); ap(rig.shR,'x',sRX,18);
+  ap(rig.shL,'z',sLZ,14); ap(rig.shR,'z',sRZ,14);
+  ap(rig.elL,'x',eL,16); ap(rig.elR,'x',eR,16);
+  ap(rig.head,'x',hX+P.pitch*.25,10);
+  /* ---- braids + scarf: trail, lift when falling, whip on turns ---- */
+  const lift=clamp(-P.vy*.09,0,1.4), airK=P.grounded?0:.4;
+  const speedK=clamp(hsp/9,0,1);
+  const baseRx=.22+speedK*.85+lift;
+  for(let b=0;b<2;b++){ const segs=rig.braids[b];
+    for(let i=0;i<segs.length;i++){
+      const fl=Math.sin(t*10+i*1.4+b*2.1)*.09*(speedK+airK+.15);
+      ap(segs[i],'x',clamp(baseRx*(.4+i*.26),0,2.1)+fl,8+i*3);
+      ap(segs[i],'z',clamp(-turnS*.22,-0.8,0.8)*(.35+i*.26)+fl*.5,7+i*3);
+    }}
+  ap(rig.scarf,'x',clamp(.15+speedK*.9+lift*.8,0,1.9)+Math.sin(t*9.3)*.08*(speedK+airK+.1),9);
+  /* ---- ink blob shadow ---- */
+  let gy=-1e9;
+  for(const c of query(P.x-.3,P.y-24,P.z-.3,P.x+.3,P.y+.02,P.z+.3))
+    if(c.y1<=P.y+.02&&c.y1>gy&&P.x>c.x0-.3&&P.x<c.x1+.3&&P.z>c.z0-.3&&P.z<c.z1+.3)gy=c.y1;
+  const dh=P.y-gy;
+  if(gy>-1e8&&dh<12){ blob.visible=true; blob.position.set(P.x,gy+.03,P.z);
+    const s=clamp(1-dh/13,.25,1); blob.scale.set(s,s,1); blob.material.opacity=.2*s; }
+  else blob.visible=false;
+}
+
 /* ============================== player ============================== */
 const P={
   x:bx(3),y:roofH(3,3)+.5,z:bz(3),
@@ -563,8 +763,6 @@ const P={
   pagesGot:0,
 };
 const GRAV=23,JUMPV=8.4,COYOTE=.14,BUFFER=.14;
-const eyeOff=()=>P.height-.15;
-let eyeY=P.y+eyeOff();
 
 function aabb(o=0){return[P.x-P.hw-o,P.y-o,P.z-P.hw-o,P.x+P.hw+o,P.y+P.height+o,P.z+P.hw+o];}
 function boxFree(x0,y0,z0,x1,y1,z1){return query(x0,y0,z0,x1,y1,z1).length===0;}
@@ -676,6 +874,7 @@ function updatePlayer(dt){
   if(kFwd()){ix+=fwd[0];iz+=fwd[1];} if(kBack()){ix-=fwd[0];iz-=fwd[1];}
   if(kRight()){ix+=right[0];iz+=right[1];} if(kLeft()){ix-=right[0];iz-=right[1];}
   const il=Math.hypot(ix,iz); if(il>0){ix/=il;iz/=il;}
+  P.inX=ix;P.inZ=iz;P.inL=il; // the character rig reads these for facing
   const hsp=Math.hypot(P.vx,P.vz);
   const flowMult=1+.22*(P.flow/100);
 
@@ -683,19 +882,19 @@ function updatePlayer(dt){
   if(P.state==='hang'){
     const l=P.hang;
     P.vx=P.vy=P.vz=0; P.grip-=6*dt;
-    // shimmy along the ledge
+    // shimmy along the ledge with sideways input
     const tang=[-l.fz,l.fx];
-    let sh=0; if(kRight())sh+=right[0]*tang[0]+right[1]*tang[1]; if(kLeft())sh-=right[0]*tang[0]+right[1]*tang[1];
-    if(kFwd())sh+= fwd[0]*tang[0]+fwd[1]*tang[1]*0; // forward doesn't shimmy
-    if(Math.abs(sh)>.3){
+    const sh=il>0?ix*tang[0]+iz*tang[1]:0;
+    const toward=il>0?ix*l.fx+iz*l.fz:0;   // input pushed into / away from the ledge
+    if(Math.abs(sh)>.35){
       const nx=P.x+tang[0]*Math.sign(sh)*1.6*dt, nz=P.z+tang[1]*Math.sign(sh)*1.6*dt;
       const still=(nx>l.c.x0-.1&&nx<l.c.x1+.1&&nz>l.c.z0-.1&&nz<l.c.z1+.1);
       if(still){P.x=nx;P.z=nz;}
     }
-    if(nowS()-lastJumpPress<BUFFER||kFwd()){ lastJumpPress=-9;
+    if(nowS()-lastJumpPress<BUFFER||toward>.5){ lastJumpPress=-9;
       startMantle({...l,mx:safeClamp(P.x+l.fx*(P.hw+.3),l.c.x0+P.hw,l.c.x1-P.hw),
         mz:safeClamp(P.z+l.fz*(P.hw+.3),l.c.z0+P.hw,l.c.z1-P.hw)}); return; }
-    if(kBack()||P.grip<=0){ P.state='run'; P.hang=null; P.vx=-l.fx*2; P.vz=-l.fz*2; P.vy=-1; }
+    if(toward<-.5||P.grip<=0){ P.state='run'; P.hang=null; P.vx=-l.fx*2; P.vz=-l.fz*2; P.vy=-1; }
     updateCamera(dt); return;
   }
 
@@ -727,7 +926,7 @@ function updatePlayer(dt){
     const [wnx,wnz]=P.wallN;
     const still=probeWall(-wnx,-wnz,.35);
     P.wallrunT+=dt; P.grip-=20*dt;
-    if(!still||P.grounded||hsp<3.4||P.grip<=0||P.wallrunT>2.1||(!kFwd()&&il>0&&(ix*-wnx+iz*-wnz)<-.4)){
+    if(!still||P.grounded||hsp<3.4||P.grip<=0||P.wallrunT>2.1||(il>0&&(ix*-wnx+iz*-wnz)<-.55)){
       P.state='run';
     } else {
       addFlow(5*dt);
@@ -751,8 +950,9 @@ function updatePlayer(dt){
   }
   // enter wallrun: airborne, wall beside us, moving along it
   if(P.state==='run'&&!P.grounded&&P.airTime>.07&&P.vy<5&&hsp>4.4&&P.grip>8){
-    for(const side of [1,-1]){
-      const dx=right[0]*side,dz=right[1]*side;
+    const vdx=P.vx/hsp,vdz=P.vz/hsp;
+    for(const side of [1,-1]){ // probe perpendicular to velocity, not the camera
+      const dx=-vdz*side,dz=vdx*side;
       const w=probeWall(dx,dz,.5);
       if(!w)continue;
       const tang=[-w.nz,w.nx];
@@ -766,14 +966,16 @@ function updatePlayer(dt){
 
   /* -------- wall climb -------- */
   if(P.state==='climb'){
-    const w=probeWall(fwd[0],fwd[1],.42);
-    if(!w||!kFwd()||P.grip<=0||P.grounded&&P.vy<=0){ P.state='run'; }
+    const [cnx,cnz]=P.climbN||[0,0];
+    const w=probeWall(-cnx,-cnz,.42);
+    const away=il>0?(ix*cnx+iz*cnz):0;   // input pulling off the wall
+    if(!w||il===0||away>.5||P.grip<=0||P.grounded&&P.vy<=0){ P.state='run'; }
     else{
       P.grip-=36*dt;
       P.vy=damp(P.vy,2.6+1.4*(P.grip/100),10,dt);
       P.vx=damp(P.vx,0,8,dt); P.vz=damp(P.vz,0,8,dt);
       P.vx-=w.nx*1.5*dt;P.vz-=w.nz*1.5*dt;
-      const l=findLedge(-w.nx,-w.nz)||findLedge(fwd[0],fwd[1]);
+      const l=findLedge(-w.nx,-w.nz);
       if(l){ // reached the top: grab straight into mantle
         startMantle(l); return; }
       if(nowS()-lastJumpPress<BUFFER){ lastJumpPress=-9; // kick off backwards
@@ -783,18 +985,23 @@ function updatePlayer(dt){
       finishFrame(dt); updateCamera(dt); return;
     }
   }
-  if(P.state==='run'&&!P.grounded&&kFwd()&&P.grip>4&&P.vy<4.5&&P.vy>-3.5){
-    const w=probeWall(fwd[0],fwd[1],.4);
+  if(P.state==='run'&&!P.grounded&&il>0&&P.grip>4&&P.vy<4.5&&P.vy>-3.5){
+    const w=probeWall(ix,iz,.4);
     if(w&&w.dist<.3&&-(P.vx*w.nx+P.vz*w.nz)>-1){
-      const facing=-(fwd[0]*w.nx+fwd[1]*w.nz);
-      if(facing>.72){ P.state='climb'; P.vy=Math.max(P.vy,2.2); SFX.grab(); }
+      const facing=-(ix*w.nx+iz*w.nz);   // input pushed into the wall
+      if(facing>.72){ P.state='climb'; P.climbN=[w.nx,w.nz]; P.vy=Math.max(P.vy,2.2); SFX.grab(); }
     }
   }
 
   /* -------- ledge grab (falling, forgiving) -------- */
   if(P.state==='run'&&!P.grounded&&P.vy<2.5){
-    const l=findLedge(fwd[0],fwd[1]);
-    if(l&&(kFwd()||P.vy<-3)){
+    // grab direction: pushed input, else travel direction, else camera forward
+    let gx,gz;
+    if(il>0){gx=ix;gz=iz;}
+    else if(hsp>1){gx=P.vx/hsp;gz=P.vz/hsp;}
+    else{gx=fwd[0];gz=fwd[1];}
+    const l=findLedge(gx,gz);
+    if(l&&(il>0||P.vy<-3)){
       P.state='hang'; P.hang=l; SFX.grab(); addFlow(6);
       P.vx=P.vy=P.vz=0;
       // snap to hang position
@@ -925,38 +1132,61 @@ function finishFrame(dt){
   frameGround=false;frameWall=null;frameCeil=false;
 }
 
-/* -------- camera -------- */
-let camFov=78,camRollV=0,camBobT=0,camImp=0,camImpV=0,rollAnimT=0,camShake=0;
+/* -------- third-person orbit camera -------- */
+let camFov=74,camImp=0,camImpV=0,rollAnimT=0,camShake=0,camDist=4.2,pivotYs=0;
 function camImpulse(a,fwdKick){ camImpV-=a*3; camShake=Math.max(camShake,a*.4); }
+// exact ray-vs-AABB clamp so the camera never clips through geometry
+function rayClamp(ox,oy,oz,dx,dy,dz,maxT){
+  const m=.3, ex=ox+dx*maxT,ey=oy+dy*maxT,ez=oz+dz*maxT;
+  const hits=query(Math.min(ox,ex)-m,Math.min(oy,ey)-m,Math.min(oz,ez)-m,
+    Math.max(ox,ex)+m,Math.max(oy,ey)+m,Math.max(oz,ez)+m).slice();
+  let t=maxT;
+  const p=[ox,oy,oz],d=[dx,dy,dz];
+  for(const c of hits){
+    const lo=[c.x0-m,c.y0-m,c.z0-m],hi=[c.x1+m,c.y1+m,c.z1+m];
+    let t0=0,t1=t,ok=true;
+    for(let a=0;a<3;a++){
+      if(Math.abs(d[a])<1e-8){ if(p[a]<lo[a]||p[a]>hi[a]){ok=false;break;} }
+      else{ let ta=(lo[a]-p[a])/d[a],tb=(hi[a]-p[a])/d[a];
+        if(ta>tb){const tmp=ta;ta=tb;tb=tmp;}
+        if(ta>t0)t0=ta; if(tb<t1)t1=tb;
+        if(t0>t1){ok=false;break;} }
+    }
+    if(ok&&t0<t)t=Math.max(.05,t0);
+  }
+  return t;
+}
 function updateCamera(dt){
   const hsp=Math.hypot(P.vx,P.vz);
-  // FOV widens with speed + flow
-  const tFov=78+clamp(hsp-5.5,0,7)*1.7+(P.flow/100)*5;
+  const tFov=74+clamp(hsp-5.5,0,7)*1.3+(P.flow/100)*4;
   camFov=damp(camFov,tFov,6,dt);
   camera.fov=camFov; camera.updateProjectionMatrix();
-  // roll: wallrun tilt / slide tilt
   let tRoll=0;
-  if(P.state==='wallrun')tRoll=-P.wallSide*.21;
-  else if(P.state==='slide')tRoll=.07;
+  if(P.state==='wallrun')tRoll=-P.wallSide*.1;
+  else if(P.state==='slide')tRoll=.04;
   P.roll=damp(P.roll,tRoll,8,dt);
-  // landing spring
   camImpV+=(-camImp*140-camImpV*14)*dt; camImp+=camImpV*dt;
   camShake=Math.max(0,camShake-dt*2);
-  // roll animation dip
-  let rollDip=0,rollTilt=0;
-  if(rollAnimT>0){rollAnimT-=dt;const t=1-rollAnimT/.42;
-    rollDip=-Math.sin(t*Math.PI)*.5; rollTilt=Math.sin(t*Math.PI*2)*.12;}
-  // head bob
-  if(P.grounded&&hsp>2&&P.state!=='slide')camBobT+=dt*hsp*1.35;
-  const bob=(P.grounded&&hsp>2)?Math.sin(camBobT)*.045*Math.min(1,hsp/6):0;
-  const targetEye=P.y+eyeOff();
-  eyeY=damp(eyeY,targetEye,22,dt);
-  if(Math.abs(eyeY-targetEye)>1.4)eyeY=targetEye; // teleports snap
+  if(rollAnimT>0)rollAnimT-=dt;
+  // pivot floats above the runner's shoulders, smoothed (snaps on teleports)
+  const tPiv=P.y+P.height*.72+.42;
+  pivotYs=damp(pivotYs,tPiv,16,dt);
+  if(Math.abs(pivotYs-tPiv)>2)pivotYs=tPiv;
+  const px=P.x, py=pivotYs+camImp, pz=P.z;
+  // pulls back with speed and flow
+  const desired=3.8+clamp(hsp-5.5,0,8)*.22+(P.flow/100)*.55;
+  const cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
+  const dx=Math.sin(P.yaw)*cp, dy=-sp, dz=Math.cos(P.yaw)*cp;
+  const tHit=Math.max(.6,rayClamp(px,py,pz,dx,dy,dz,desired));
+  // snap in when obstructed, ease back out
+  camDist=camDist>tHit?tHit:damp(camDist,tHit,4.5,dt);
   camera.position.set(
-    P.x+(Math.random()-.5)*camShake*.05,
-    eyeY+bob+camImp+rollDip+(Math.random()-.5)*camShake*.05,
-    P.z+(Math.random()-.5)*camShake*.05);
-  camera.rotation.y=P.yaw; camera.rotation.x=P.pitch; camera.rotation.z=P.roll+rollTilt;
+    px+dx*camDist+(Math.random()-.5)*camShake*.05,
+    py+dy*camDist+(Math.random()-.5)*camShake*.05,
+    pz+dz*camDist+(Math.random()-.5)*camShake*.05);
+  camera.rotation.y=P.yaw; camera.rotation.x=P.pitch; camera.rotation.z=P.roll;
+  // fade the runner out of the way when the camera is pushed right up close
+  charRoot.visible=camDist>1.0;
 }
 
 /* ============================== trials ============================== */
@@ -1143,8 +1373,8 @@ function drawHUD(dt){
   // wall state labels
   if(P.state==='wallrun'||P.state==='climb'||P.state==='hang'){
     hg.fillStyle='#d42b1e';hg.font='15px "Segoe Print",cursive';
-    const lbl=P.state==='hang'?'hanging — W/Space mantle · S drop':P.state==='climb'?'climbing':'wall-run — Space to kick off';
-    hg.fillText(lbl,cx-hg.measureText(lbl).width/2,cy+56);
+    const lbl=P.state==='hang'?'hanging — push in / Space to mantle · pull away to drop':P.state==='climb'?'climbing':'wall-run — Space to kick off';
+    hg.fillText(lbl,cx-hg.measureText(lbl).width/2,cy+160);
     hg.font='18px "Segoe Print",cursive';
   }
 }
@@ -1187,6 +1417,7 @@ function frame(now){
     timeS+=dt;
     const steps=dt>1/55?2:1, sdt=dt/steps;
     for(let s=0;s<steps;s++)updatePlayer(sdt);
+    updateCharacter(dt);
     updateTrial(dt); updatePages(dt);
     // wind: height + speed
     if(SFX.ctx){ const hsp=Math.hypot(P.vx,P.vz);
@@ -1203,12 +1434,12 @@ updateCamera(0);
 requestAnimationFrame(frame);
 
 // expose for smoke tests (deterministic physics stepping, independent of rAF rate)
-window.__game={P,colliders,courses,pages,begin,keys,trial,findLedge,probeWall,query,
+window.__game={P,colliders,courses,pages,begin,keys,trial,findLedge,probeWall,query,camera,charRoot,
   get running(){return running;},
   jump(){lastJumpPress=timeS;},
   crouch(){lastCrouchPress=timeS;},
   pressE(){pressedE=true;},
-  tick(dt){timeS+=dt;updatePlayer(dt);updateTrial(dt);updatePages(dt);},
+  tick(dt){timeS+=dt;updatePlayer(dt);updateCharacter(dt);updateTrial(dt);updatePages(dt);},
 };
 </script>
 </body>
